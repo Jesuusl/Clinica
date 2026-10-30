@@ -270,7 +270,11 @@ export function seedData() {
     INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, details, ip_address, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '-1 hours'))
   `);
-  insertAudit.run(1, 'Carlos Ramos', 'admin', 'SYSTEM_INITIALIZATION', 'system', '0', 'Sembrado y arranque de datos clínicos del sistema hospitalario', '127.0.0.1');
-  insertAudit.run(2, 'Dra. Valentina Soto', 'doctor', 'CREATE_MEDICAL_RECORD', 'medical_record', '1', 'Registro de atención médica y diagnóstico I10 para paciente Juan Pérez', '192.168.1.45');
-  insertAudit.run(5, 'QF. Laura Mendoza', 'pharmacy', 'DISPENSE_MEDICATION', 'prescription', '2', 'Dispensación exitosa de Atorvastatina 20mg con código 391845 validado irreversiblemente', '192.168.1.80');
+  const defaultAuditIp = process.env.AUDIT_SEED_IP || '127.0.0.1';
+  const doctorAuditIp = process.env.DOCTOR_AUDIT_IP || defaultAuditIp;
+  const pharmacyAuditIp = process.env.PHARMACY_AUDIT_IP || defaultAuditIp;
+
+  insertAudit.run(1, 'Carlos Ramos', 'admin', 'SYSTEM_INITIALIZATION', 'system', '0', 'Sembrado y arranque de datos clínicos del sistema hospitalario', defaultAuditIp);
+  insertAudit.run(2, 'Dra. Valentina Soto', 'doctor', 'CREATE_MEDICAL_RECORD', 'medical_record', '1', 'Registro de atención médica y diagnóstico I10 para paciente Juan Pérez', doctorAuditIp);
+  insertAudit.run(5, 'QF. Laura Mendoza', 'pharmacy', 'DISPENSE_MEDICATION', 'prescription', '2', 'Dispensación exitosa de Atorvastatina 20mg con código 391845 validado irreversiblemente', pharmacyAuditIp);
 }

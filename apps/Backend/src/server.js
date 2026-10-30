@@ -13,6 +13,7 @@ import pharmacyRoutes from './routes/pharmacy.js';
 import auditRoutes from './routes/audit.js';
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = process.env.PORT || 4000;
 
 // Configuración segura de CORS para producción y desarrollo
