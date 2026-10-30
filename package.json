@@ -1,0 +1,12 @@
+{
+  "name": "clinica-hospital-root",
+  "version": "1.0.0",
+  "description": "Sistema Integral de Gestión Clínica y Hospitalaria SaludPlus",
+  "scripts": {
+    "start:backend": "cd apps/Backend && npm start",
+    "dev:backend": "cd apps/Backend && npm run dev",
+    "dev:frontend": "cd apps/Frontend && npm run dev",
+    "test:backend": "cd apps/Backend && npm test",
+    "build:frontend": "cd apps/Frontend && npm run build"
+  }
+}

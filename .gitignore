@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Environment variables & sensitive credentials
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+!.env.example
+*.pem
+*.key
+
+# Local databases & storage
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+apps/Backend/data/*.db
+apps/Backend/data/*.sqlite
+
+# Build outputs & caches
+dist/
+dist-ssr/
+build/
+.cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
