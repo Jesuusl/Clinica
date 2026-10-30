@@ -68,6 +68,7 @@ async function runTests() {
   // 3. Flujo de Citas: Creación clasificada, optimización de turnos y cambio de estado
   let testApptId = null;
   await test('3. Agendamiento de Cita clasificada por color e inicio en Solicitada', async () => {
+    db.prepare("UPDATE appointments SET status = 'Cancelada' WHERE date = '2026-11-20' AND time_slot = '14:00' AND doctor_id = 2").run();
     const res = await request('/appointments', {
       method: 'POST',
       body: JSON.stringify({

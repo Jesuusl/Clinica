@@ -31,7 +31,7 @@ export default function AuditModule({ onClose, onShowToast }) {
   };
 
   useEffect(() => {
-    loadLogs();
+    void loadLogs();
   }, []);
 
   const filteredLogs = logs.filter(l => {
@@ -56,13 +56,22 @@ export default function AuditModule({ onClose, onShowToast }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '950px' }} onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+    >
+      <div className="modal-content" style={{ maxWidth: '950px' }} role="dialog" aria-modal="true" aria-labelledby="audit-modal-title">
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <ShieldCheck size={22} color="var(--primary)" />
             <div>
-              <h3 className="card-title" style={{ margin: 0 }}>
+              <h3 id="audit-modal-title" className="card-title" style={{ margin: 0 }}>
                 Bitácora de Seguridad & Auditoría Clínica
               </h3>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -70,7 +79,7 @@ export default function AuditModule({ onClose, onShowToast }) {
               </div>
             </div>
           </div>
-          <button className="icon-btn" onClick={onClose}>✕</button>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Cerrar modal">✕</button>
         </div>
 
         <div className="modal-body">

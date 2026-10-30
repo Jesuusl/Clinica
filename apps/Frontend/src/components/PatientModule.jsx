@@ -107,7 +107,7 @@ export default function PatientModule({ patientUser, onShowToast }) {
   };
 
   useEffect(() => {
-    loadPatientData();
+    void loadPatientData();
   }, [patientUser?.id]);
 
   // Actualizar perfil
@@ -119,7 +119,7 @@ export default function PatientModule({ patientUser, onShowToast }) {
         actingUserName: patientUser.name
       });
       onShowToast('¡Datos personales y médicos actualizados correctamente!', 'success');
-      loadPatientData();
+      await loadPatientData();
     } catch (err) {
       onShowToast(err.message, 'error');
     }
@@ -148,7 +148,7 @@ export default function PatientModule({ patientUser, onShowToast }) {
 
       onShowToast('¡Cita solicitada exitosamente! Se encuentra en estado Pendiente para confirmación administrativa.', 'success');
       setShowScheduleModal(false);
-      loadPatientData();
+      await loadPatientData();
     } catch (err) {
       onShowToast(err.message, 'error');
     }
@@ -673,8 +673,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
               </h3>
               <div className="form-grid-3">
                 <div className="form-group">
-                  <label className="form-label">Teléfono Móvil</label>
+                  <label className="form-label" htmlFor="patient-profile-phone">Teléfono Móvil</label>
                   <input
+                    id="patient-profile-phone"
                     type="text"
                     className="form-input"
                     value={profileForm.phone}
@@ -683,8 +684,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Correo Electrónico</label>
+                  <label className="form-label" htmlFor="patient-profile-email">Correo Electrónico</label>
                   <input
+                    id="patient-profile-email"
                     type="email"
                     className="form-input"
                     value={profileForm.email}
@@ -693,8 +695,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Dirección de Residencia</label>
+                  <label className="form-label" htmlFor="patient-profile-address">Dirección de Residencia</label>
                   <input
+                    id="patient-profile-address"
                     type="text"
                     className="form-input"
                     value={profileForm.address}
@@ -709,8 +712,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
               </h3>
               <div className="form-grid-2">
                 <div className="form-group">
-                  <label className="form-label">EPS / Aseguradora de Salud</label>
+                  <label className="form-label" htmlFor="patient-profile-eps">EPS / Aseguradora de Salud</label>
                   <input
+                    id="patient-profile-eps"
                     type="text"
                     className="form-input"
                     value={profileForm.eps_insurance}
@@ -719,8 +723,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Número de Póliza / Afiliación</label>
+                  <label className="form-label" htmlFor="patient-profile-policy">Número de Póliza / Afiliación</label>
                   <input
+                    id="patient-profile-policy"
                     type="text"
                     className="form-input"
                     value={profileForm.policy_number}
@@ -735,8 +740,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
               </h3>
               <div className="form-grid-3">
                 <div className="form-group">
-                  <label className="form-label">Tipo de Sangre</label>
+                  <label className="form-label" htmlFor="patient-profile-blood">Tipo de Sangre</label>
                   <select
+                    id="patient-profile-blood"
                     className="form-select"
                     value={profileForm.blood_type}
                     onChange={(e) => setProfileForm({ ...profileForm, blood_type: e.target.value })}
@@ -752,8 +758,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Alergias Conocidas</label>
+                  <label className="form-label" htmlFor="patient-profile-allergies">Alergias Conocidas</label>
                   <input
+                    id="patient-profile-allergies"
                     type="text"
                     className="form-input"
                     placeholder="Ej. Penicilina, Sulfas..."
@@ -762,8 +769,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Condiciones Crónicas Preexistentes</label>
+                  <label className="form-label" htmlFor="patient-profile-conditions">Condiciones Crónicas Preexistentes</label>
                   <input
+                    id="patient-profile-conditions"
                     type="text"
                     className="form-input"
                     placeholder="Ej. Hipertensión, Diabetes..."
@@ -775,8 +783,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
 
               <div className="form-grid-2" style={{ marginTop: '0.75rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Contacto de Emergencia (Nombre y Parentesco)</label>
+                  <label className="form-label" htmlFor="patient-profile-emerg-name">Contacto de Emergencia (Nombre y Parentesco)</label>
                   <input
+                    id="patient-profile-emerg-name"
                     type="text"
                     className="form-input"
                     value={profileForm.emergency_contact_name}
@@ -784,8 +793,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Teléfono de Emergencia</label>
+                  <label className="form-label" htmlFor="patient-profile-emerg-phone">Teléfono de Emergencia</label>
                   <input
+                    id="patient-profile-emerg-phone"
                     type="text"
                     className="form-input"
                     value={profileForm.emergency_contact_phone}
@@ -807,20 +817,29 @@ export default function PatientModule({ patientUser, onShowToast }) {
 
       {/* MODAL PARA AGENDAR CITA CON CLASIFICACIÓN */}
       {showScheduleModal && (
-        <div className="modal-overlay" onClick={() => setShowScheduleModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowScheduleModal(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowScheduleModal(false);
+          }}
+        >
+          <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="patient-schedule-title">
             <div className="modal-header">
-              <h3 className="card-title">
+              <h3 id="patient-schedule-title" className="card-title">
                 <Calendar size={20} color="var(--primary)" />
                 Solicitud de Agendamiento de Cita
               </h3>
-              <button className="icon-btn" onClick={() => setShowScheduleModal(false)}>✕</button>
+              <button type="button" className="icon-btn" onClick={() => setShowScheduleModal(false)} aria-label="Cerrar modal">✕</button>
             </div>
             <form onSubmit={handleScheduleAppointment}>
               <div className="modal-body">
                 {/* Selector de Motivo con Colores */}
                 <div className="form-group">
-                  <label className="form-label">Motivo de la Cita (Clasificación Automática):</label>
+                  <span className="form-label" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Motivo de la Cita (Clasificación Automática):</span>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <button
                       type="button"
@@ -859,8 +878,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
 
                 <div className="form-grid-2">
                   <div className="form-group">
-                    <label className="form-label">Especialidad Requerida</label>
+                    <label className="form-label" htmlFor="sched-specialty">Especialidad Requerida</label>
                     <input
+                      id="sched-specialty"
                       type="text"
                       className="form-input"
                       value={scheduleForm.specialty}
@@ -869,8 +889,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Médico Especialista</label>
+                    <label className="form-label" htmlFor="sched-doctor">Médico Especialista</label>
                     <select
+                      id="sched-doctor"
                       className="form-select"
                       value={scheduleForm.doctor_id}
                       onChange={(e) => {
@@ -894,8 +915,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
 
                 <div className="form-grid-2">
                   <div className="form-group">
-                    <label className="form-label">Fecha Deseada</label>
+                    <label className="form-label" htmlFor="sched-date">Fecha Deseada</label>
                     <input
+                      id="sched-date"
                       type="date"
                       className="form-input"
                       value={scheduleForm.date}
@@ -905,8 +927,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Franja Horaria</label>
+                    <label className="form-label" htmlFor="sched-time">Franja Horaria</label>
                     <select
+                      id="sched-time"
                       className="form-select"
                       value={scheduleForm.time_slot}
                       onChange={(e) => setScheduleForm({ ...scheduleForm, time_slot: e.target.value })}
@@ -924,8 +947,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Notas Adicionales o Síntomas</label>
+                  <label className="form-label" htmlFor="sched-notes">Notas Adicionales o Síntomas</label>
                   <textarea
+                    id="sched-notes"
                     className="form-textarea"
                     rows="3"
                     placeholder="Describe brevemente el motivo de la consulta o síntomas presentados..."

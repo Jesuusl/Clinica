@@ -45,7 +45,7 @@ export default function LabModule({ labUser, onShowToast }) {
   };
 
   useEffect(() => {
-    loadOrders();
+    void loadOrders();
   }, []);
 
   const handleOpenUpload = (order) => {
@@ -63,25 +63,40 @@ export default function LabModule({ labUser, onShowToast }) {
     setShowUploadModal(true);
   };
 
+  // Sanitizador seguro contra Prototype Pollution
+  const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+  const safeSetParam = (target, rawKey, rawValue) => {
+    const key = String(rawKey || '').trim();
+    if (key && !FORBIDDEN_KEYS.has(key.toLowerCase())) {
+      Object.defineProperty(target, key, {
+        value: String(rawValue || '').trim(),
+        writable: true,
+        enumerable: true,
+        configurable: true
+      });
+    }
+  };
+
   const handleSaveResult = async (e) => {
     e.preventDefault();
     if (!selectedOrder) return;
 
     try {
-      const result_values = {};
+      // Objeto seguro sin prototipo para prevenir contaminación de prototipos
+      const result_values = Object.create(null);
       if (resultForm.param1_name && resultForm.param1_val) {
-        result_values[resultForm.param1_name] = resultForm.param1_val;
+        safeSetParam(result_values, resultForm.param1_name, resultForm.param1_val);
       }
       if (resultForm.param2_name && resultForm.param2_val) {
-        result_values[resultForm.param2_name] = resultForm.param2_val;
+        safeSetParam(result_values, resultForm.param2_name, resultForm.param2_val);
       }
       if (resultForm.param3_name && resultForm.param3_val) {
-        result_values[resultForm.param3_name] = resultForm.param3_val;
+        safeSetParam(result_values, resultForm.param3_name, resultForm.param3_val);
       }
 
       await api.submitLabResult(selectedOrder.id, {
         result_notes: resultForm.result_notes,
-        result_values,
+        result_values: { ...result_values },
         attachment_name: resultForm.attachment_name,
         attachment_url: `#report-${selectedOrder.id}`,
         completed_by: labUser?.id || 4,
@@ -90,7 +105,7 @@ export default function LabModule({ labUser, onShowToast }) {
 
       onShowToast(`¡Resultado cargado exitosamente e incorporado a la historia clínica de ${selectedOrder.patient_name}!`, 'success');
       setShowUploadModal(false);
-      loadOrders();
+      await loadOrders();
     } catch (err) {
       onShowToast(err.message, 'error');
     }
@@ -214,14 +229,23 @@ export default function LabModule({ labUser, onShowToast }) {
 
       {/* MODAL PARA CARGAR RESULTADOS DE LABORATORIO */}
       {showUploadModal && selectedOrder && (
-        <div className="modal-overlay" onClick={() => setShowUploadModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowUploadModal(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowUploadModal(false);
+          }}
+        >
+          <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="lab-modal-title">
             <div className="modal-header">
-              <h3 className="card-title">
+              <h3 id="lab-modal-title" className="card-title">
                 <UploadCloud size={20} color="var(--primary)" />
                 Carga de Resultados Clínicos: {selectedOrder.test_type}
               </h3>
-              <button className="icon-btn" onClick={() => setShowUploadModal(false)}>✕</button>
+              <button type="button" className="icon-btn" onClick={() => setShowUploadModal(false)} aria-label="Cerrar modal">✕</button>
             </div>
             <form onSubmit={handleSaveResult}>
               <div className="modal-body">
@@ -231,8 +255,9 @@ export default function LabModule({ labUser, onShowToast }) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Notas e Interpretación Bioquímica del Resultado:</label>
+                  <label className="form-label" htmlFor="lab-result-notes">Notas e Interpretación Bioquímica del Resultado:</label>
                   <textarea
+                    id="lab-result-notes"
                     className="form-textarea"
                     rows="3"
                     value={resultForm.result_notes}
@@ -242,13 +267,14 @@ export default function LabModule({ labUser, onShowToast }) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Parámetros Cuantitativos de Laboratorio (Métricas):</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span className="form-label" id="lab-params-group-title" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Parámetros Cuantitativos de Laboratorio (Métricas):</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} role="group" aria-labelledby="lab-params-group-title">
                     <div className="form-grid-2">
                       <input
                         type="text"
                         className="form-input"
                         placeholder="Parámetro 1"
+                        aria-label="Nombre del Parámetro 1"
                         value={resultForm.param1_name}
                         onChange={(e) => setResultForm({ ...resultForm, param1_name: e.target.value })}
                       />
@@ -256,6 +282,7 @@ export default function LabModule({ labUser, onShowToast }) {
                         type="text"
                         className="form-input"
                         placeholder="Valor y unidades (ej. 120 mg/dL)"
+                        aria-label="Valor del Parámetro 1"
                         value={resultForm.param1_val}
                         onChange={(e) => setResultForm({ ...resultForm, param1_val: e.target.value })}
                       />
@@ -265,6 +292,7 @@ export default function LabModule({ labUser, onShowToast }) {
                         type="text"
                         className="form-input"
                         placeholder="Parámetro 2"
+                        aria-label="Nombre del Parámetro 2"
                         value={resultForm.param2_name}
                         onChange={(e) => setResultForm({ ...resultForm, param2_name: e.target.value })}
                       />
@@ -272,6 +300,7 @@ export default function LabModule({ labUser, onShowToast }) {
                         type="text"
                         className="form-input"
                         placeholder="Valor y unidades"
+                        aria-label="Valor del Parámetro 2"
                         value={resultForm.param2_val}
                         onChange={(e) => setResultForm({ ...resultForm, param2_val: e.target.value })}
                       />
@@ -281,6 +310,7 @@ export default function LabModule({ labUser, onShowToast }) {
                         type="text"
                         className="form-input"
                         placeholder="Parámetro 3"
+                        aria-label="Nombre del Parámetro 3"
                         value={resultForm.param3_name}
                         onChange={(e) => setResultForm({ ...resultForm, param3_name: e.target.value })}
                       />
@@ -288,6 +318,7 @@ export default function LabModule({ labUser, onShowToast }) {
                         type="text"
                         className="form-input"
                         placeholder="Valor y unidades"
+                        aria-label="Valor del Parámetro 3"
                         value={resultForm.param3_val}
                         onChange={(e) => setResultForm({ ...resultForm, param3_val: e.target.value })}
                       />
@@ -296,10 +327,11 @@ export default function LabModule({ labUser, onShowToast }) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Nombre del Archivo Adjunto (Informe PDF Oficial):</label>
+                  <label className="form-label" htmlFor="lab-attachment-name">Nombre del Archivo Adjunto (Informe PDF Oficial):</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Paperclip size={18} color="var(--primary)" />
                     <input
+                      id="lab-attachment-name"
                       type="text"
                       className="form-input"
                       value={resultForm.attachment_name}

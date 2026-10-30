@@ -73,7 +73,7 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
   };
 
   useEffect(() => {
-    loadDoctorData();
+    void loadDoctorData();
   }, [doctorUser?.id]);
 
   // Iniciar atención de una cita
@@ -206,7 +206,7 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
         referrals: []
       });
       setActiveTab('agenda');
-      loadDoctorData();
+      await loadDoctorData();
     } catch (err) {
       onShowToast(err.message, 'error');
     }
@@ -407,8 +407,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
                   1. Diagnóstico y Registro de Evolución
                 </h3>
                 <div className="form-group">
-                  <label className="form-label">Diagnóstico Principal (CIE-10 / Descripción Clínica):</label>
+                  <label className="form-label" htmlFor="consult-diagnosis">Diagnóstico Principal (CIE-10 / Descripción Clínica):</label>
                   <input
+                    id="consult-diagnosis"
                     type="text"
                     className="form-input"
                     placeholder="Ej. I10 - Hipertensión esencial (primaria) con control favorable"
@@ -420,8 +421,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
 
                 <div className="form-grid-2">
                   <div className="form-group">
-                    <label className="form-label">Evolución y Notas Médicas:</label>
+                    <label className="form-label" htmlFor="consult-clinical-notes">Evolución y Notas Médicas:</label>
                     <textarea
+                      id="consult-clinical-notes"
                       className="form-textarea"
                       rows="4"
                       placeholder="Anamnesis, evolución de síntomas, respuesta al tratamiento previo y recomendaciones..."
@@ -431,8 +433,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Signos Vitales y Examen Físico:</label>
+                    <label className="form-label" htmlFor="consult-physical-exam">Signos Vitales y Examen Físico:</label>
                     <textarea
+                      id="consult-physical-exam"
                       className="form-textarea"
                       rows="4"
                       placeholder="TA: 120/80 mmHg | FC: 72 lpm | FR: 16 rpm | Peso: 75 kg | Hallazgos auscultación..."
@@ -463,8 +466,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
                     <div key={idx} style={{ background: 'var(--bg-subtle)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '0.75rem', position: 'relative' }}>
                       <div className="form-grid-3">
                         <div className="form-group">
-                          <label className="form-label">Medicamento</label>
+                          <label className="form-label" htmlFor={`presc-med-${idx}`}>Medicamento</label>
                           <input
+                            id={`presc-med-${idx}`}
                             type="text"
                             className="form-input"
                             placeholder="Ej. Losartán Potásico 50mg"
@@ -474,8 +478,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
                           />
                         </div>
                         <div className="form-group">
-                          <label className="form-label">Dosis y Vía</label>
+                          <label className="form-label" htmlFor={`presc-dose-${idx}`}>Dosis y Vía</label>
                           <input
+                            id={`presc-dose-${idx}`}
                             type="text"
                             className="form-input"
                             placeholder="Ej. 1 tableta (50mg)"
@@ -485,8 +490,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
                           />
                         </div>
                         <div className="form-group">
-                          <label className="form-label">Frecuencia y Duración</label>
+                          <label className="form-label" htmlFor={`presc-freq-${idx}`}>Frecuencia y Duración</label>
                           <input
+                            id={`presc-freq-${idx}`}
                             type="text"
                             className="form-input"
                             placeholder="Ej. Cada 12 horas x 30 días"
@@ -497,8 +503,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
                         </div>
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Instrucciones Específicas al Paciente</label>
+                        <label className="form-label" htmlFor={`presc-inst-${idx}`}>Instrucciones Específicas al Paciente</label>
                         <input
+                          id={`presc-inst-${idx}`}
                           type="text"
                           className="form-input"
                           placeholder="Ej. Tomar en la mañana después del desayuno con abundante agua"
@@ -705,7 +712,7 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
 
           <form onSubmit={handleSaveAvailability}>
             <div className="form-group">
-              <label className="form-label">Días Habilitados para Citas:</label>
+              <span className="form-label" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Días Habilitados para Citas:</span>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
                 {allWeekDays.map(day => {
                   const isSelected = availability.days.includes(day);
@@ -729,8 +736,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
             </div>
 
             <div className="form-group" style={{ marginTop: '1.25rem' }}>
-              <label className="form-label">Franjas Horarias Disponibles (separadas por coma):</label>
+              <label className="form-label" htmlFor="doctor-avail-hours">Franjas Horarias Disponibles (separadas por coma):</label>
               <input
+                id="doctor-avail-hours"
                 type="text"
                 className="form-input"
                 value={availability.hours.join(', ')}

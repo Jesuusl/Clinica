@@ -48,7 +48,7 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
   };
 
   useEffect(() => {
-    loadInventory();
+    void loadInventory();
   }, []);
 
   // 1. Validar Código de 6 Dígitos
@@ -98,7 +98,7 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
       setVerifiedPrescription(null);
       setPickupCodeInput('');
       onShowToast(`¡Entrega confirmada! Se descontó el stock y el código quedó invalidado irreversiblemente.`, 'success');
-      loadInventory();
+      await loadInventory();
     } catch (err) {
       onShowToast(err.message, 'error');
     } finally {
@@ -118,7 +118,7 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
       });
       onShowToast(`Se añadieron ${restockAmount} unidades a ${selectedRestockItem.medication_name}`, 'success');
       setSelectedRestockItem(null);
-      loadInventory();
+      await loadInventory();
     } catch (err) {
       onShowToast(err.message, 'error');
     }
@@ -176,12 +176,13 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
               border: '1px solid var(--border-color)',
               textAlign: 'center'
             }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
+              <label htmlFor="pharmacy-pickup-input" style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
                 DIGITA EL CÓDIGO DE RECLAMO (6 DÍGITOS):
               </label>
 
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', alignItems: 'center' }}>
                 <input
+                  id="pharmacy-pickup-input"
                   type="text"
                   maxLength="6"
                   placeholder="Ej. 849201"
@@ -453,14 +454,23 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
 
       {/* MODAL PARA REABASTECER STOCK */}
       {selectedRestockItem && (
-        <div className="modal-overlay" onClick={() => setSelectedRestockItem(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedRestockItem(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setSelectedRestockItem(null);
+          }}
+        >
+          <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="pharmacy-restock-title">
             <div className="modal-header">
-              <h3 className="card-title">
+              <h3 id="pharmacy-restock-title" className="card-title">
                 <Package size={20} color="var(--primary)" />
                 Reabastecer: {selectedRestockItem.medication_name}
               </h3>
-              <button className="icon-btn" onClick={() => setSelectedRestockItem(null)}>✕</button>
+              <button type="button" className="icon-btn" onClick={() => setSelectedRestockItem(null)} aria-label="Cerrar modal">✕</button>
             </div>
             <form onSubmit={handleRestock}>
               <div className="modal-body">
@@ -469,8 +479,9 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Cantidad a Ingresar al Inventario:</label>
+                  <label className="form-label" htmlFor="pharmacy-restock-amount">Cantidad a Ingresar al Inventario:</label>
                   <input
+                    id="pharmacy-restock-amount"
                     type="number"
                     min="1"
                     className="form-input"

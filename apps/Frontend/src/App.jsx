@@ -40,7 +40,7 @@ export default function App() {
         setLoadingInitial(false);
       }
     }
-    initUsers();
+    void initUsers();
   }, []);
 
   // Notificaciones Toast flotantes

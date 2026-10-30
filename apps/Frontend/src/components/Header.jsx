@@ -51,7 +51,13 @@ export default function Header({
     <header className="header-wrapper">
       <div className="header-top">
         {/* Marca de la Clínica */}
-        <div className="brand-area" onClick={() => handleRoleChange('patient')}>
+        <button
+          type="button"
+          className="brand-area"
+          onClick={() => handleRoleChange('patient')}
+          style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+          aria-label="Ir al inicio - SaludPlus Hospital"
+        >
           <div className="brand-logo">
             <Activity size={24} />
           </div>
@@ -63,7 +69,7 @@ export default function Header({
               Gestión Clínica & Trazabilidad Farmacéutica
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Selector de Rol Rápido */}
         <div className="role-switcher-container">

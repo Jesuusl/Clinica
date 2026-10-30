@@ -55,7 +55,7 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
   };
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
   // Cambiar estado de la cita (Confirmar o Cancelar)
@@ -69,7 +69,7 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
       });
 
       onShowToast(`Cita #${appointmentId} actualizada a estado '${newStatus}'`, 'success');
-      loadData();
+      await loadData();
     } catch (err) {
       onShowToast(err.message, 'error');
     }
@@ -111,7 +111,7 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
 
       onShowToast(`¡Cita #${selectedApptToOptimize.id} asignada y confirmada para el ${optimizedSlot.date} a las ${optimizedSlot.time_slot}!`, 'success');
       setShowOptimizeModal(false);
-      loadData();
+      await loadData();
     } catch (err) {
       onShowToast(err.message, 'error');
     }
@@ -457,14 +457,23 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
 
       {/* MODAL OPTIMIZADOR DE CITAS */}
       {showOptimizeModal && selectedApptToOptimize && (
-        <div className="modal-overlay" onClick={() => setShowOptimizeModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowOptimizeModal(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowOptimizeModal(false);
+          }}
+        >
+          <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="admin-optimize-title">
             <div className="modal-header">
-              <h3 className="card-title">
+              <h3 id="admin-optimize-title" className="card-title">
                 <Sparkles size={20} color="var(--secondary)" />
                 Optimizar Fecha y Franja Horaria
               </h3>
-              <button className="icon-btn" onClick={() => setShowOptimizeModal(false)}>✕</button>
+              <button type="button" className="icon-btn" onClick={() => setShowOptimizeModal(false)} aria-label="Cerrar modal">✕</button>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
@@ -523,14 +532,23 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
 
       {/* MODAL HISTORIA CLÍNICA CON AUDITORÍA */}
       {showHistoryModal && selectedPatientHistory && (
-        <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}>
-          <div className="modal-content" style={{ maxWidth: '750px' }} onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowHistoryModal(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowHistoryModal(false);
+          }}
+        >
+          <div className="modal-content" style={{ maxWidth: '750px' }} role="dialog" aria-modal="true" aria-labelledby="admin-history-title">
             <div className="modal-header">
-              <h3 className="card-title">
+              <h3 id="admin-history-title" className="card-title">
                 <FileText size={20} color="var(--primary)" />
                 Historia Clínica: {selectedPatientHistory.name}
               </h3>
-              <button className="icon-btn" onClick={() => setShowHistoryModal(false)}>✕</button>
+              <button type="button" className="icon-btn" onClick={() => setShowHistoryModal(false)} aria-label="Cerrar modal">✕</button>
             </div>
             <div className="modal-body">
               <div className="alert-box alert-info" style={{ padding: '0.6rem 0.85rem', marginBottom: '1rem' }}>
