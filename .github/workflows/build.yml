@@ -30,3 +30,7 @@ jobs:
           args: >
             -Dsonar.organization=jesuuusl
             -Dsonar.projectKey=Jesuusl_Clinica
+            -Dsonar.sources=apps
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,apps/Backend/data/**,**/*.test.js
+            -Dsonar.tests=apps/Backend/tests
+            -Dsonar.test.inclusions=**/*.test.js
