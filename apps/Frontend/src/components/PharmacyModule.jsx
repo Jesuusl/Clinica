@@ -200,11 +200,11 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
                     const val = e.target.value.replace(/\D/g, '');
                     setPickupCodeInput(val);
                     if (val.length === 6) {
-                      handleVerifyCode(val);
+                      void handleVerifyCode(val);
                     }
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleVerifyCode();
+                    if (e.key === 'Enter') void handleVerifyCode();
                   }}
                 />
 
@@ -229,7 +229,7 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
                   style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', margin: '0 0.25rem' }}
                   onClick={() => {
                     setPickupCodeInput('849201');
-                    handleVerifyCode('849201');
+                    void handleVerifyCode('849201');
                   }}
                 >
                   849201 (Pendiente)
@@ -240,7 +240,7 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
                   style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', margin: '0 0.25rem' }}
                   onClick={() => {
                     setPickupCodeInput('391845');
-                    handleVerifyCode('391845');
+                    void handleVerifyCode('391845');
                   }}
                 >
                   391845 (Ya Reclamado)
