@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import './App.css';
+import LandingPage from './components/LandingPage';
+import AuthModal from './components/AuthModal';
 import Header from './components/Header';
 import PatientModule from './components/PatientModule';
 import AdminModule from './components/AdminModule';
@@ -9,7 +12,18 @@ import AuditModule from './components/AuditModule';
 import { api } from './services/api';
 
 export default function App() {
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('saludplus_theme') || 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  const [view, setView] = useState('landing'); // 'landing' | 'portal'
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authInitialTab, setAuthInitialTab] = useState('login'); // 'login' | 'register'
+
   const [users, setUsers] = useState([]);
   const [activeRole, setActiveRole] = useState('patient');
   const [currentUser, setCurrentUser] = useState(null);
@@ -17,22 +31,56 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
 
-  // Sincronizar tema con el atributo data-theme en el documento HTML
+  // Sincronizar tema con el atributo data-theme en el documento HTML y guardar preferencia
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('saludplus_theme', theme);
+    } catch {
+      // Ignorar error si localStorage no está disponible
+    }
   }, [theme]);
 
-  // Cargar usuarios del sistema al inicio
-  useEffect(() => {
-    async function initUsers() {
-      try {
-        const res = await api.getUsers();
-        setUsers(res.data);
+  // Cargar usuarios del sistema y verificar si existe sesión activa previa
+  const loadSystemUsers = async () => {
+    try {
+      const res = await api.getUsers();
+      setUsers(res.data);
+      return res.data;
+    } catch (err) {
+      console.error('Error al cargar lista de usuarios:', err);
+      return [];
+    }
+  };
 
-        // Seleccionar paciente por defecto (Juan Pérez)
-        const defaultPatient = res.data.find(u => u.role === 'patient');
-        if (defaultPatient) {
-          setCurrentUser(defaultPatient);
+  useEffect(() => {
+    async function initSession() {
+      setLoadingInitial(true);
+      try {
+        const sysUsers = await loadSystemUsers();
+
+        // Verificar si hay token almacenado
+        const token = api.getStoredToken();
+        if (token) {
+          try {
+            const meRes = await api.getMe();
+            if (meRes.data) {
+              setCurrentUser(meRes.data);
+              setActiveRole(meRes.data.role);
+            }
+          } catch (tokenErr) {
+            console.warn('Token previo no válido o expirado:', tokenErr.message);
+            api.clearSession();
+          }
+        } else {
+          // Si no hay token previo, mantener como invitado en la Landing Page
+          // Pero predeterminar el paciente Juan Pérez para cuando explore sin login si así lo desea
+          const defaultPatient = sysUsers.find(u => u.role === 'patient');
+          if (defaultPatient) {
+            // No iniciamos sesión automáticamente para respetar el flujo de autenticación,
+            // pero dejamos el rol listo para consultas
+            setActiveRole('patient');
+          }
         }
       } catch (err) {
         showToast(`Error al inicializar la plataforma: ${err.message}`, 'error');
@@ -40,7 +88,7 @@ export default function App() {
         setLoadingInitial(false);
       }
     }
-    void initUsers();
+    void initSession();
   }, []);
 
   // Notificaciones Toast flotantes
@@ -52,66 +100,123 @@ export default function App() {
     }, 4500);
   };
 
+  // Apertura de modal de autenticación
+  const handleOpenAuth = (tab = 'login') => {
+    setAuthInitialTab(tab);
+    setShowAuthModal(true);
+  };
+
+  // Manejo de éxito en autenticación (Login o Registro)
+  const handleAuthSuccess = async (authenticatedUser) => {
+    setCurrentUser(authenticatedUser);
+    setActiveRole(authenticatedUser.role);
+    setView('portal');
+    // Actualizar lista global de usuarios
+    await loadSystemUsers();
+  };
+
+  // Manejo de Cerrar Sesión
+  const handleLogout = () => {
+    api.logout();
+    setCurrentUser(null);
+    setView('landing');
+    showToast('Has cerrado tu sesión correctamente.', 'info');
+  };
+
   return (
     <div className="app-container">
-      {/* Barra Superior con Selector de Rol Inmediato */}
-      <Header
-        activeRole={activeRole}
-        setActiveRole={setActiveRole}
-        currentUser={currentUser}
-        setCurrentUser={setCurrentUser}
-        users={users}
-        theme={theme}
-        setTheme={setTheme}
-        onOpenAudit={() => setShowAuditModal(true)}
+      {/* VISTA 1: LANDING PAGE MÉDICA MODERNA */}
+      {view === 'landing' && (
+        <LandingPage
+          currentUser={currentUser}
+          theme={theme}
+          setTheme={setTheme}
+          onOpenAuth={handleOpenAuth}
+          onEnterPortal={() => {
+            if (currentUser) {
+              setView('portal');
+            } else {
+              handleOpenAuth('login');
+            }
+          }}
+          onShowToast={showToast}
+        />
+      )}
+
+      {/* VISTA 2: PORTAL CLÍNICO HOSPITALARIO */}
+      {view === 'portal' && (
+        <>
+          {/* Barra Superior del Portal */}
+          <Header
+            activeRole={activeRole}
+            setActiveRole={setActiveRole}
+            currentUser={currentUser}
+            setCurrentUser={setCurrentUser}
+            users={users}
+            theme={theme}
+            setTheme={setTheme}
+            onOpenAudit={() => setShowAuditModal(true)}
+            onGoToLanding={() => setView('landing')}
+            onLogout={handleLogout}
+          />
+
+          {/* Contenido Principal Modular según Rol */}
+          <main className="main-content">
+            {loadingInitial ? (
+              <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+                Cargando portal clínico SaludPlus...
+              </div>
+            ) : (
+              <>
+                {activeRole === 'patient' && (
+                  <PatientModule
+                    patientUser={currentUser}
+                    onShowToast={showToast}
+                  />
+                )}
+
+                {activeRole === 'admin' && (
+                  <AdminModule
+                    adminUser={currentUser}
+                    onShowToast={showToast}
+                    onOpenAudit={() => setShowAuditModal(true)}
+                  />
+                )}
+
+                {activeRole === 'doctor' && (
+                  <DoctorModule
+                    doctorUser={currentUser}
+                    onShowToast={showToast}
+                  />
+                )}
+
+                {activeRole === 'lab' && (
+                  <LabModule
+                    labUser={currentUser}
+                    onShowToast={showToast}
+                  />
+                )}
+
+                {activeRole === 'pharmacy' && (
+                  <PharmacyModule
+                    pharmacyUser={currentUser}
+                    onShowToast={showToast}
+                  />
+                )}
+              </>
+            )}
+          </main>
+        </>
+      )}
+
+      {/* Modal de Autenticación (Login & Registro de Paciente) */}
+      <AuthModal
+        isOpen={showAuthModal}
+        initialTab={authInitialTab}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={handleAuthSuccess}
+        onShowToast={showToast}
       />
-
-      {/* Contenido Principal Modular */}
-      <main className="main-content">
-        {loadingInitial ? (
-          <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-            Inicializando sistema hospitalario SaludPlus...
-          </div>
-        ) : (
-          <>
-            {activeRole === 'patient' && (
-              <PatientModule
-                patientUser={currentUser}
-                onShowToast={showToast}
-              />
-            )}
-
-            {activeRole === 'admin' && (
-              <AdminModule
-                adminUser={currentUser}
-                onShowToast={showToast}
-                onOpenAudit={() => setShowAuditModal(true)}
-              />
-            )}
-
-            {activeRole === 'doctor' && (
-              <DoctorModule
-                doctorUser={currentUser}
-                onShowToast={showToast}
-              />
-            )}
-
-            {activeRole === 'lab' && (
-              <LabModule
-                labUser={currentUser}
-                onShowToast={showToast}
-              />
-            )}
-
-            {activeRole === 'pharmacy' && (
-              <PharmacyModule
-                pharmacyUser={currentUser}
-                onShowToast={showToast}
-              />
-            )}
-          </>
-        )}
-      </main>
 
       {/* Modal de Auditoría y Seguridad */}
       {showAuditModal && (

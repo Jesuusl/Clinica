@@ -1,12 +1,51 @@
 const API_BASE = '/api';
 
+export function getStoredToken() {
+  try {
+    return localStorage.getItem('saludplus_token');
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem('saludplus_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setSession(token, user) {
+  try {
+    if (token) localStorage.setItem('saludplus_token', token);
+    if (user) localStorage.setItem('saludplus_user', JSON.stringify(user));
+  } catch (err) {
+    console.error('Error saving session to localStorage:', err);
+  }
+}
+
+export function clearSession() {
+  try {
+    localStorage.removeItem('saludplus_token');
+    localStorage.removeItem('saludplus_user');
+  } catch (err) {
+    console.error('Error clearing session from localStorage:', err);
+  }
+}
+
 async function fetchJSON(url, options = {}) {
+  const token = getStoredToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers
+  };
+
   const res = await fetch(`${API_BASE}${url}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers
-    },
-    ...options
+    ...options,
+    headers
   });
 
   const data = await res.json();
@@ -17,7 +56,107 @@ async function fetchJSON(url, options = {}) {
   return data;
 }
 
+export const DEMO_ACCOUNTS = [
+  {
+    role: 'admin',
+    roleLabel: 'Administración / Recepción',
+    name: 'Carlos Ramos',
+    email: 'recepcion@clinicasalud.com',
+    password: 'Admin123*',
+    badge: 'Control Central & Doctores'
+  },
+  {
+    role: 'doctor',
+    roleLabel: 'Cardiología Especializada',
+    name: 'Dra. Valentina Soto',
+    email: 'vsoto@clinicasalud.com',
+    password: 'Doctor123*',
+    badge: 'Consultas & Prescripciones'
+  },
+  {
+    role: 'doctor',
+    roleLabel: 'Medicina General',
+    name: 'Dr. Alejandro Ruiz',
+    email: 'aruiz@clinicasalud.com',
+    password: 'Doctor123*',
+    badge: 'Atención Primaria'
+  },
+  {
+    role: 'patient',
+    roleLabel: 'Paciente Titular',
+    name: 'Juan Pérez Gómez',
+    email: 'juan.perez@email.com',
+    password: 'Paciente123*',
+    badge: 'Historial & Código de Farmacia'
+  },
+  {
+    role: 'patient',
+    roleLabel: 'Paciente',
+    name: 'María Gómez Londoño',
+    email: 'maria.gomez@email.com',
+    password: 'Paciente123*',
+    badge: 'Agendamiento Web'
+  },
+  {
+    role: 'lab',
+    roleLabel: 'Laboratorio Clínico',
+    name: 'Lic. Roberto Díaz',
+    email: 'lab@clinicasalud.com',
+    password: 'Lab123*',
+    badge: 'Resultados Inmediatos'
+  },
+  {
+    role: 'pharmacy',
+    roleLabel: 'Farmacia Hospitalaria',
+    name: 'QF. Laura Mendoza',
+    email: 'farmacia@clinicasalud.com',
+    password: 'Farmacia123*',
+    badge: 'Despacho Código 6 Dígitos'
+  }
+];
+
 export const api = {
+  // Autenticación y Cuentas
+  login: async (credentials) => {
+    const res = await fetchJSON('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials)
+    });
+    if (res.data?.token) {
+      setSession(res.data.token, res.data.user);
+    }
+    return res;
+  },
+
+  registerPatient: async (patientData) => {
+    const res = await fetchJSON('/auth/register-patient', {
+      method: 'POST',
+      body: JSON.stringify(patientData)
+    });
+    if (res.data?.token) {
+      setSession(res.data.token, res.data.user);
+    }
+    return res;
+  },
+
+  createDoctor: async (doctorData) => {
+    return fetchJSON('/auth/create-doctor', {
+      method: 'POST',
+      body: JSON.stringify(doctorData)
+    });
+  },
+
+  getMe: () => fetchJSON('/auth/me'),
+
+  logout: () => {
+    clearSession();
+  },
+
+  getStoredToken,
+  getStoredUser,
+  setSession,
+  clearSession,
+
   // Usuarios y roles
   getUsers: () => fetchJSON('/auth/users'),
   getUserById: (id) => fetchJSON(`/auth/users/${id}`),

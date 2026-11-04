@@ -24,6 +24,8 @@ export function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
+      password_hash TEXT,
+      salt TEXT,
       role TEXT NOT NULL CHECK(role IN ('patient', 'admin', 'doctor', 'lab', 'pharmacy')),
       phone TEXT,
       avatar TEXT,
@@ -191,6 +193,20 @@ export function initDatabase() {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
   `);
+
+  // Migración automática retrocompatible para tablas existentes
+  try {
+    const userColumns = db.prepare("PRAGMA table_info(users)").all();
+    const columnNames = userColumns.map(col => col.name);
+    if (!columnNames.includes('password_hash')) {
+      db.exec('ALTER TABLE users ADD COLUMN password_hash TEXT;');
+    }
+    if (!columnNames.includes('salt')) {
+      db.exec('ALTER TABLE users ADD COLUMN salt TEXT;');
+    }
+  } catch (migError) {
+    console.error('Error aplicando migración de seguridad en users:', migError.message);
+  }
 }
 
 /**

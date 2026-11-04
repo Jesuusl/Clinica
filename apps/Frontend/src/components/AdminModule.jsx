@@ -13,7 +13,12 @@ import {
   Search,
   Filter,
   Eye,
-  Building
+  EyeOff,
+  Building,
+  UserPlus,
+  Lock,
+  Mail,
+  Phone
 } from 'lucide-react';
 
 export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
@@ -23,6 +28,23 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
   const [activeTab, setActiveTab] = useState('citas'); // 'citas', 'doctores', 'historias'
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+
+  // Modal para Registro de Nuevo Médico Especialista
+  const [showCreateDoctorModal, setShowCreateDoctorModal] = useState(false);
+  const [creatingDoctor, setCreatingDoctor] = useState(false);
+  const [showDoctorPassword, setShowDoctorPassword] = useState(false);
+  const [doctorForm, setDoctorForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    specialty: 'Cardiología',
+    license_number: '',
+    office_number: '',
+    available_days: ['Lunes', 'Miércoles', 'Viernes'],
+    available_hours: ['08:00 - 12:00', '14:00 - 18:00'],
+    avatar: ''
+  });
 
   // Modal para Optimizar Cita Más Próxima
   const [showOptimizeModal, setShowOptimizeModal] = useState(false);
@@ -115,6 +137,102 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
     } catch (err) {
       onShowToast(err.message, 'error');
     }
+  };
+
+  // Manejar creación de nuevo médico especialista por el Administrador
+  const handleCreateDoctor = async (e) => {
+    e.preventDefault();
+    if (
+      !doctorForm.name.trim() ||
+      !doctorForm.email.trim() ||
+      !doctorForm.password ||
+      !doctorForm.license_number.trim() ||
+      !doctorForm.office_number.trim()
+    ) {
+      onShowToast('Por favor completa los campos requeridos con asterisco (*)', 'error');
+      return;
+    }
+
+    if (doctorForm.password.length < 6) {
+      onShowToast('La contraseña debe tener una longitud mínima de 6 caracteres', 'error');
+      return;
+    }
+
+    if (doctorForm.available_days.length === 0) {
+      onShowToast('Debes seleccionar al menos un día de atención para el médico', 'error');
+      return;
+    }
+
+    if (doctorForm.available_hours.length === 0) {
+      onShowToast('Debes seleccionar al menos una franja horaria de consulta', 'error');
+      return;
+    }
+
+    setCreatingDoctor(true);
+    try {
+      const payload = {
+        adminUserId: adminUser?.id || 1,
+        name: doctorForm.name.trim(),
+        email: doctorForm.email.trim().toLowerCase(),
+        password: doctorForm.password,
+        phone: doctorForm.phone.trim() || '+57 300 000 0000',
+        specialty: doctorForm.specialty.trim(),
+        license_number: doctorForm.license_number.trim(),
+        office_number: doctorForm.office_number.trim(),
+        available_days: doctorForm.available_days,
+        available_hours: doctorForm.available_hours,
+        avatar: doctorForm.avatar.trim() || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=256&q=80'
+      };
+
+      const res = await api.createDoctor(payload);
+      onShowToast(`¡Médico especialista ${res.data.name} (${res.data.specialty}) registrado exitosamente!`, 'success');
+
+      // Cerrar modal y reiniciar formulario
+      setShowCreateDoctorModal(false);
+      setDoctorForm({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        specialty: 'Cardiología',
+        license_number: '',
+        office_number: '',
+        available_days: ['Lunes', 'Miércoles', 'Viernes'],
+        available_hours: ['08:00 - 12:00', '14:00 - 18:00'],
+        avatar: ''
+      });
+
+      // Recargar directorio médico de inmediato
+      await loadData();
+    } catch (err) {
+      onShowToast(err.message, 'error');
+    } finally {
+      setCreatingDoctor(false);
+    }
+  };
+
+  const toggleDaySelection = (day) => {
+    setDoctorForm(prev => {
+      const exists = prev.available_days.includes(day);
+      return {
+        ...prev,
+        available_days: exists
+          ? prev.available_days.filter(d => d !== day)
+          : [...prev.available_days, day]
+      };
+    });
+  };
+
+  const toggleHourSelection = (hour) => {
+    setDoctorForm(prev => {
+      const exists = prev.available_hours.includes(hour);
+      return {
+        ...prev,
+        available_hours: exists
+          ? prev.available_hours.filter(h => h !== hour)
+          : [...prev.available_hours, hour]
+      };
+    });
   };
 
   // Ver historia clínica de paciente con log de auditoría
@@ -346,6 +464,14 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
                 Supervisión de consultorios, especialidades, registros médicos y franjas de disponibilidad declaradas.
               </p>
             </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowCreateDoctorModal(true)}
+            >
+              <UserPlus size={18} />
+              <span>+ Registrar Nuevo Doctor / Especialista</span>
+            </button>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.25rem' }}>
@@ -589,6 +715,254 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA REGISTRAR NUEVO DOCTOR / ESPECIALISTA */}
+      {showCreateDoctorModal && (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCreateDoctorModal(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowCreateDoctorModal(false);
+          }}
+        >
+          <div className="modal-content" style={{ maxWidth: '720px' }} role="dialog" aria-modal="true" aria-labelledby="create-doc-title">
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div className="brand-logo" style={{ width: '36px', height: '36px' }}>
+                  <UserPlus size={20} />
+                </div>
+                <div>
+                  <h3 id="create-doc-title" className="card-title">
+                    Registrar Nuevo Médico / Especialista
+                  </h3>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Alta institucional en el directorio clínico y habilitación de agenda
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setShowCreateDoctorModal(false)}
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDoctor}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* 1. Datos Personales & Credenciales */}
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Nombre Completo del Médico *</label>
+                    <div className="input-with-icon">
+                      <UserCheck size={18} className="field-icon" />
+                      <input
+                        type="text"
+                        className="form-input field-input"
+                        placeholder="Ej: Dra. Camila Morales"
+                        value={doctorForm.name}
+                        onChange={(e) => setDoctorForm({ ...doctorForm, name: e.target.value })}
+                        required
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Email Institucional *</label>
+                    <div className="input-with-icon">
+                      <Mail size={18} className="field-icon" />
+                      <input
+                        type="email"
+                        className="form-input field-input"
+                        placeholder="cmorales@clinicasalud.com"
+                        value={doctorForm.email}
+                        onChange={(e) => setDoctorForm({ ...doctorForm, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Contraseña Inicial (Mín. 6 caracteres) *</label>
+                    <div className="input-with-icon">
+                      <Lock size={18} className="field-icon" />
+                      <input
+                        type={showDoctorPassword ? 'text' : 'password'}
+                        className="form-input field-input"
+                        placeholder="Contraseña para el portal del doctor"
+                        value={doctorForm.password}
+                        onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="toggle-pwd-btn"
+                        onClick={() => setShowDoctorPassword(!showDoctorPassword)}
+                        aria-label="Ver u ocultar contraseña"
+                      >
+                        {showDoctorPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Teléfono Móvil / Contacto</label>
+                    <div className="input-with-icon">
+                      <Phone size={18} className="field-icon" />
+                      <input
+                        type="tel"
+                        className="form-input field-input"
+                        placeholder="+57 311 456 7890"
+                        value={doctorForm.phone}
+                        onChange={(e) => setDoctorForm({ ...doctorForm, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Especialidad, Registro y Consultorio */}
+                <div className="form-grid-3">
+                  <div className="form-group">
+                    <label className="form-label">Especialidad Médica *</label>
+                    <select
+                      className="form-select"
+                      value={doctorForm.specialty}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, specialty: e.target.value })}
+                      required
+                    >
+                      <option value="Cardiología">Cardiología</option>
+                      <option value="Medicina General">Medicina General</option>
+                      <option value="Pediatría">Pediatría</option>
+                      <option value="Neurología">Neurología</option>
+                      <option value="Ginecología">Ginecología y Obstetricia</option>
+                      <option value="Traumatología">Traumatología y Ortopedia</option>
+                      <option value="Dermatología">Dermatología</option>
+                      <option value="Oftalmología">Oftalmología</option>
+                      <option value="Psiquiatría">Psiquiatría</option>
+                      <option value="Urología">Urología</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Tarjeta / Registro Médico *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ej: MP-CARD-98432"
+                      value={doctorForm.license_number}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, license_number: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Consultorio / Ubicación *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ej: Consultorio 305 - Torre A"
+                      value={doctorForm.office_number}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, office_number: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Días de Atención */}
+                <div className="form-group">
+                  <label className="form-label">
+                    Días de Atención Semanal * (Selecciona los días habilitados)
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map((day) => {
+                      const isSelected = doctorForm.available_days.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
+                          onClick={() => toggleDaySelection(day)}
+                          style={{ borderRadius: 'var(--radius-full)' }}
+                        >
+                          {isSelected ? '✓ ' : '+ '} {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Franjas Horarias */}
+                <div className="form-group">
+                  <label className="form-label">
+                    Franjas Horarias de Consulta *
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {[
+                      '07:00 - 12:00',
+                      '08:00 - 12:00',
+                      '13:00 - 17:00',
+                      '14:00 - 18:00',
+                      '18:00 - 21:00'
+                    ].map((slot) => {
+                      const isSelected = doctorForm.available_hours.includes(slot);
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          className={`btn btn-sm ${isSelected ? 'btn-success' : 'btn-secondary'}`}
+                          onClick={() => toggleHourSelection(slot)}
+                          style={{ borderRadius: 'var(--radius-full)' }}
+                        >
+                          {isSelected ? '✓ ' : '+ '} {slot}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 5. URL de Avatar / Foto (Opcional) */}
+                <div className="form-group">
+                  <label className="form-label">URL de Foto de Perfil (Opcional)</label>
+                  <input
+                    type="url"
+                    className="form-input"
+                    placeholder="https://images.unsplash.com/... (Dejar vacío para avatar por defecto)"
+                    value={doctorForm.avatar}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, avatar: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowCreateDoctorModal(false)}
+                  disabled={creatingDoctor}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={creatingDoctor}
+                >
+                  <UserPlus size={18} />
+                  <span>{creatingDoctor ? 'Registrando en Base de Datos...' : 'Guardar y Habilitar Doctor'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

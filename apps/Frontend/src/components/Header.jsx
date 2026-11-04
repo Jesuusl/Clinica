@@ -8,7 +8,10 @@ import {
   Pill,
   Sun,
   Moon,
-  FileCheck
+  FileCheck,
+  Globe,
+  LogOut,
+  ChevronDown
 } from 'lucide-react';
 
 export default function Header({
@@ -19,7 +22,9 @@ export default function Header({
   users,
   theme,
   setTheme,
-  onOpenAudit
+  onOpenAudit,
+  onGoToLanding,
+  onLogout
 }) {
   const roles = [
     { key: 'patient', label: 'Pacientes', icon: User, desc: 'Portal y Perfil' },
@@ -50,12 +55,21 @@ export default function Header({
   return (
     <header className="header-wrapper">
       <div className="header-top">
-        {/* Marca de la Clínica */}
+        {/* Marca de la Clínica con Navegación al Inicio */}
         <button
           type="button"
           className="brand-area"
-          onClick={() => handleRoleChange('patient')}
-          style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+          onClick={onGoToLanding}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            textAlign: 'left',
+            font: 'inherit',
+            color: 'inherit',
+            cursor: 'pointer'
+          }}
+          title="Ir a la Landing Page Principal"
           aria-label="Ir al inicio - SaludPlus Hospital"
         >
           <div className="brand-logo">
@@ -71,7 +85,7 @@ export default function Header({
           </div>
         </button>
 
-        {/* Selector de Rol Rápido */}
+        {/* Selector de Rol Rápido en el Portal */}
         <div className="role-switcher-container">
           <span className="role-switcher-label">Módulo:</span>
           <div className="role-pills">
@@ -95,8 +109,20 @@ export default function Header({
 
         {/* Acciones Rápidas del Encabezado */}
         <div className="header-actions">
+          {/* Botón para volver a la Landing Page */}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onGoToLanding}
+            title="Ver Sitio Web Institucional / Landing Page"
+          >
+            <Globe size={16} color="var(--primary)" />
+            <span>Ver Sitio Web</span>
+          </button>
+
           {/* Botón de Auditoría General */}
           <button
+            type="button"
             className="btn btn-secondary btn-sm"
             onClick={onOpenAudit}
             title="Registro de Logs de Auditoría y Seguridad"
@@ -107,11 +133,24 @@ export default function Header({
 
           {/* Toggle Modo Oscuro / Claro */}
           <button
+            type="button"
             className="icon-btn"
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             title="Cambiar tema claro / oscuro"
+            aria-label="Cambiar tema"
           >
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+
+          {/* Botón de Cerrar Sesión */}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm btn-logout"
+            onClick={onLogout}
+            title="Cerrar sesión activa y regresar al inicio"
+          >
+            <LogOut size={16} color="var(--danger)" />
+            <span>Salir</span>
           </button>
         </div>
       </div>

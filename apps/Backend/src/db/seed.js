@@ -1,26 +1,82 @@
 import { db, initDatabase } from './database.js';
+import { hashPassword } from '../utils/security.js';
+
+export const DEMO_CREDENTIALS = {
+  'recepcion@clinicasalud.com': 'Admin123*',
+  'vsoto@clinicasalud.com': 'Doctor123*',
+  'aruiz@clinicasalud.com': 'Doctor123*',
+  'lab@clinicasalud.com': 'Lab123*',
+  'farmacia@clinicasalud.com': 'Farmacia123*',
+  'juan.perez@email.com': 'Paciente123*',
+  'maria.gomez@email.com': 'Paciente123*'
+};
+
+export function getDefaultPasswordForUser(email, role) {
+  const normalized = (email || '').trim().toLowerCase();
+  if (DEMO_CREDENTIALS[normalized]) {
+    return DEMO_CREDENTIALS[normalized];
+  }
+  switch (role) {
+    case 'admin': return 'Admin123*';
+    case 'doctor': return 'Doctor123*';
+    case 'lab': return 'Lab123*';
+    case 'pharmacy': return 'Farmacia123*';
+    case 'patient':
+    default: return 'Paciente123*';
+  }
+}
+
+export function migrateMissingPasswords() {
+  try {
+    const usersWithoutPassword = db.prepare(`
+      SELECT id, email, role FROM users
+      WHERE password_hash IS NULL OR password_hash = '' OR salt IS NULL OR salt = ''
+    `).all();
+
+    if (usersWithoutPassword.length > 0) {
+      const updateStmt = db.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?');
+      for (const u of usersWithoutPassword) {
+        const password = getDefaultPasswordForUser(u.email, u.role);
+        const { hash, salt } = hashPassword(password);
+        updateStmt.run(hash, salt, u.id);
+      }
+    }
+  } catch (err) {
+    console.error('Error migrando contraseñas de usuarios existentes:', err.message);
+  }
+}
 
 export function seedData() {
   initDatabase();
 
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
   if (userCount > 0) {
-    return; // Ya hay datos iniciales
+    // Si ya existen usuarios, nos aseguramos de que todos cuenten con contraseñas seguras hasheadas
+    migrateMissingPasswords();
+    return;
   }
 
-  // 1. Usuarios del sistema
+  // 1. Usuarios del sistema con contraseñas criptográficas
   const insertUser = db.prepare(`
-    INSERT INTO users (id, name, email, role, phone, avatar)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO users (id, name, email, password_hash, salt, role, phone, avatar)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertUser.run(1, 'Carlos Ramos', 'recepcion@clinicasalud.com', 'admin', '+57 310 456 7890', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80');
-  insertUser.run(2, 'Dra. Valentina Soto', 'vsoto@clinicasalud.com', 'doctor', '+57 311 234 5678', 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=256&q=80');
-  insertUser.run(3, 'Dr. Alejandro Ruiz', 'aruiz@clinicasalud.com', 'doctor', '+57 312 987 6543', 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=256&q=80');
-  insertUser.run(4, 'Lic. Roberto Díaz', 'lab@clinicasalud.com', 'lab', '+57 314 555 1234', 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=256&q=80');
-  insertUser.run(5, 'QF. Laura Mendoza', 'farmacia@clinicasalud.com', 'pharmacy', '+57 316 777 8899', 'https://images.unsplash.com/photo-1594824813572-c51f49618f3a?auto=format&fit=crop&w=256&q=80');
-  insertUser.run(6, 'Juan Pérez Gómez', 'juan.perez@email.com', 'patient', '+57 300 123 4567', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80');
-  insertUser.run(7, 'María Gómez Londoño', 'maria.gomez@email.com', 'patient', '+57 301 987 6543', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=256&q=80');
+  const usersDemo = [
+    { id: 1, name: 'Carlos Ramos', email: 'recepcion@clinicasalud.com', role: 'admin', phone: '+57 310 456 7890', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80' },
+    { id: 2, name: 'Dra. Valentina Soto', email: 'vsoto@clinicasalud.com', role: 'doctor', phone: '+57 311 234 5678', avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=256&q=80' },
+    { id: 3, name: 'Dr. Alejandro Ruiz', email: 'aruiz@clinicasalud.com', role: 'doctor', phone: '+57 312 987 6543', avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=256&q=80' },
+    { id: 4, name: 'Lic. Roberto Díaz', email: 'lab@clinicasalud.com', role: 'lab', phone: '+57 314 555 1234', avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=256&q=80' },
+    { id: 5, name: 'QF. Laura Mendoza', email: 'farmacia@clinicasalud.com', role: 'pharmacy', phone: '+57 316 777 8899', avatar: 'https://images.unsplash.com/photo-1594824813572-c51f49618f3a?auto=format&fit=crop&w=256&q=80' },
+    { id: 6, name: 'Juan Pérez Gómez', email: 'juan.perez@email.com', role: 'patient', phone: '+57 300 123 4567', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80' },
+    { id: 7, name: 'María Gómez Londoño', email: 'maria.gomez@email.com', role: 'patient', phone: '+57 301 987 6543', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=256&q=80' }
+  ];
+
+  for (const u of usersDemo) {
+    const password = getDefaultPasswordForUser(u.email, u.role);
+    const { hash, salt } = hashPassword(password);
+    insertUser.run(u.id, u.name, u.email, hash, salt, u.role, u.phone, u.avatar);
+  }
 
   // 2. Perfiles de doctores
   const insertDoc = db.prepare(`
