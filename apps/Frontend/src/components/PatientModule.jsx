@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { realtimeService } from '../services/realtime';
 import {
   User,
   HeartPulse,
@@ -17,7 +18,7 @@ import {
   Download
 } from 'lucide-react';
 
-export default function PatientModule({ patientUser, onShowToast }) {
+export default function PatientModule({ patientUser, onShowToast, lastRealtimeEvent }) {
   const [activeTab, setActiveTab] = useState('citas'); // 'citas', 'reclamar', 'historia', 'laboratorios', 'perfil'
   const [profile, setProfile] = useState(null);
   const [appointments, setAppointments] = useState([]);
@@ -56,9 +57,9 @@ export default function PatientModule({ patientUser, onShowToast }) {
   const [selectedRecord, setSelectedRecord] = useState(null);
 
   // Cargar datos del paciente
-  const loadPatientData = async () => {
+  const loadPatientData = async (quiet = false) => {
     if (!patientUser?.id) return;
-    setLoading(true);
+    if (!quiet) setLoading(true);
     try {
       const [profRes, apptRes, prescRes, recRes, labRes, docsRes] = await Promise.all([
         api.getPatientProfile(patientUser.id),
@@ -102,13 +103,61 @@ export default function PatientModule({ patientUser, onShowToast }) {
     } catch (err) {
       onShowToast(err.message, 'error');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     void loadPatientData();
+
+    // Suscripción reactiva en tiempo real a citas, laboratorios y fórmulas
+    const unsubAppt = realtimeService.subscribe('APPOINTMENT_UPDATED', (event) => {
+      if (!event.data?.patient_id || event.data.patient_id === patientUser?.id) {
+        void loadPatientData(true);
+      }
+    });
+
+    const unsubLab = realtimeService.subscribe('LAB_RESULT_READY', (event) => {
+      if (!event.data?.patient_id || event.data.patient_id === patientUser?.id) {
+        void loadPatientData(true);
+      }
+    });
+
+    const unsubPresc = realtimeService.subscribe('PRESCRIPTION_CREATED', (event) => {
+      if (!event.data?.patient_id || event.data.patient_id === patientUser?.id) {
+        void loadPatientData(true);
+      }
+    });
+
+    const unsubDisp = realtimeService.subscribe('MEDICATION_DISPENSED', (event) => {
+      if (!event.data?.patient_id || event.data.patient_id === patientUser?.id) {
+        void loadPatientData(true);
+      }
+    });
+
+    return () => {
+      unsubAppt();
+      unsubLab();
+      unsubPresc();
+      unsubDisp();
+    };
   }, [patientUser?.id]);
+
+  // Actualización reactiva por prop del orquestador
+  useEffect(() => {
+    if (!lastRealtimeEvent) return;
+    const { type, data } = lastRealtimeEvent;
+    if (
+      type === 'APPOINTMENT_UPDATED' ||
+      type === 'LAB_RESULT_READY' ||
+      type === 'PRESCRIPTION_CREATED' ||
+      type === 'MEDICATION_DISPENSED'
+    ) {
+      if (!data?.patient_id || data.patient_id === patientUser?.id) {
+        void loadPatientData(true);
+      }
+    }
+  }, [lastRealtimeEvent, patientUser?.id]);
 
   // Actualizar perfil
   const handleUpdateProfile = async (e) => {

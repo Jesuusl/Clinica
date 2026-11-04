@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { db, generateUniquePickupCode, logAudit } from '../db/database.js';
+import { broadcastEvent } from '../services/realtime.js';
 
 const router = Router();
 
 // Ejecución completa de consulta médica (Atención, Recetas con código 6 dígitos, Labs y Remisiones)
-router.post('/consultation', (req, res) => {
+// Admite /consultation y /consultations
+router.post(['/consultation', '/consultations'], (req, res) => {
   try {
     const {
       appointment_id,
@@ -174,6 +176,27 @@ router.post('/consultation', (req, res) => {
       entityId: recordId,
       details: `Atención clínica completada. Recetas: ${generatedPrescriptions.length}, Labs: ${generatedLabs.length}, Remisiones: ${generatedReferrals.length}`
     });
+
+    // Notificar en tiempo real a Farmacia y Paciente si se emitieron prescripciones
+    if (generatedPrescriptions.length > 0) {
+      const primaryPrescription = generatedPrescriptions[0];
+      broadcastEvent('PRESCRIPTION_CREATED', {
+        record_id: recordId,
+        appointment_id: appointment_id || null,
+        patient_id,
+        doctor_id,
+        doctor_name: doctor.name,
+        doctor_signature: doctorSignature,
+        doctor_license: doctorLicense,
+        pickup_code: primaryPrescription.pickup_code,
+        medication_name: primaryPrescription.medication_name,
+        dosage: primaryPrescription.dosage,
+        prescriptions: generatedPrescriptions
+      }, {
+        targetRoles: ['pharmacy', 'patient'],
+        targetUserId: patient_id
+      });
+    }
 
     res.status(201).json({
       success: true,

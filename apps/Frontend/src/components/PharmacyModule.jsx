@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { realtimeService } from '../services/realtime';
 import {
   Pill,
   ShieldAlert,
@@ -13,14 +14,18 @@ import {
   RefreshCw,
   Plus,
   Lock,
-  UserCheck
+  UserCheck,
+  Sparkles
 } from 'lucide-react';
 
-export default function PharmacyModule({ pharmacyUser, onShowToast }) {
+export default function PharmacyModule({ pharmacyUser, onShowToast, lastRealtimeEvent }) {
   const [activeTab, setActiveTab] = useState('canje'); // 'canje', 'inventario'
   const [inventory, setInventory] = useState([]);
   const [summary, setSummary] = useState({ total_items: 0, critical_alerts: 0 });
   const [loading, setLoading] = useState(true);
+
+  // Fórmulas entrantes recibidas en tiempo real vía SSE
+  const [incomingPrescriptions, setIncomingPrescriptions] = useState([]);
 
   // Estados del Canje de Código de 6 Dígitos
   const [pickupCodeInput, setPickupCodeInput] = useState('');
@@ -34,8 +39,8 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
   const [selectedRestockItem, setSelectedRestockItem] = useState(null);
   const [restockAmount, setRestockAmount] = useState(20);
 
-  const loadInventory = async () => {
-    setLoading(true);
+  const loadInventory = async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const res = await api.getPharmacyInventory();
       setInventory(res.data);
@@ -43,13 +48,72 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
     } catch (err) {
       onShowToast(err.message, 'error');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     void loadInventory();
+
+    // 1. Alerta de nueva fórmula médica emitida por un doctor
+    const unsubPresc = realtimeService.subscribe('PRESCRIPTION_CREATED', (event) => {
+      void loadInventory(true);
+      if (event.data?.pickup_code) {
+        setIncomingPrescriptions(prev => [
+          {
+            pickup_code: event.data.pickup_code,
+            patient_name: event.data.patient_name || 'Paciente',
+            medication_name: event.data.medication_name || 'Medicamento',
+            dosage: event.data.dosage || '',
+            doctor_name: event.data.doctor_name || 'Médico',
+            timestamp: event.timestamp || new Date().toISOString()
+          },
+          ...prev.filter(p => p.pickup_code !== event.data.pickup_code).slice(0, 4)
+        ]);
+      }
+    });
+
+    // 2. Alerta de stock crítico
+    const unsubStock = realtimeService.subscribe('LOW_STOCK_ALERT', () => {
+      void loadInventory(true);
+    });
+
+    // 3. Confirmación de entrega
+    const unsubDisp = realtimeService.subscribe('MEDICATION_DISPENSED', () => {
+      void loadInventory(true);
+    });
+
+    return () => {
+      unsubPresc();
+      unsubStock();
+      unsubDisp();
+    };
   }, []);
+
+  // Actualización reactiva por prop del orquestador
+  useEffect(() => {
+    if (!lastRealtimeEvent) return;
+    if (
+      lastRealtimeEvent.type === 'PRESCRIPTION_CREATED' ||
+      lastRealtimeEvent.type === 'MEDICATION_DISPENSED' ||
+      lastRealtimeEvent.type === 'LOW_STOCK_ALERT'
+    ) {
+      void loadInventory(true);
+      if (lastRealtimeEvent.type === 'PRESCRIPTION_CREATED' && lastRealtimeEvent.data?.pickup_code) {
+        setIncomingPrescriptions(prev => [
+          {
+            pickup_code: lastRealtimeEvent.data.pickup_code,
+            patient_name: lastRealtimeEvent.data.patient_name || 'Paciente',
+            medication_name: lastRealtimeEvent.data.medication_name || 'Medicamento',
+            dosage: lastRealtimeEvent.data.dosage || '',
+            doctor_name: lastRealtimeEvent.data.doctor_name || 'Médico',
+            timestamp: lastRealtimeEvent.timestamp || new Date().toISOString()
+          },
+          ...prev.filter(p => p.pickup_code !== lastRealtimeEvent.data.pickup_code).slice(0, 4)
+        ]);
+      }
+    }
+  }, [lastRealtimeEvent]);
 
   // 1. Validar Código de 6 Dígitos
   const handleVerifyCode = async (codeToVerify) => {
@@ -165,6 +229,61 @@ export default function PharmacyModule({ pharmacyUser, onShowToast }) {
                 </p>
               </div>
             </div>
+
+            {/* Alerta de Fórmulas Recibidas en Vivo por SSE */}
+            {incomingPrescriptions.length > 0 && (
+              <div style={{
+                maxWidth: '650px',
+                margin: '0 auto 1.5rem',
+                background: 'rgba(2, 132, 199, 0.08)',
+                border: '1px solid var(--primary)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1rem',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.1)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.875rem' }}>
+                    <Sparkles size={16} />
+                    <span>Fórmulas Médicas Recibidas en Vivo (SSE):</span>
+                  </div>
+                  <span className="badge badge-confirmada" style={{ fontSize: '0.7rem' }}>
+                    {incomingPrescriptions.length} nueva(s)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {incomingPrescriptions.map(p => (
+                    <div key={p.pickup_code} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'var(--bg-card)',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '0.825rem',
+                      gap: '0.5rem',
+                      flexWrap: 'wrap'
+                    }}>
+                      <div>
+                        <strong>{p.patient_name}</strong> • <span>{p.medication_name} ({p.dosage})</span>
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Médico: {p.doctor_name}</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.75rem' }}
+                        onClick={() => {
+                          setPickupCodeInput(p.pickup_code);
+                          void handleVerifyCode(p.pickup_code);
+                        }}
+                      >
+                        Validar {p.pickup_code}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Formulario de Búsqueda de Código */}
             <div style={{

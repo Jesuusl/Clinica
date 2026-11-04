@@ -1,3 +1,5 @@
+import { realtimeService } from './realtime';
+
 const API_BASE = '/api';
 
 export function getStoredToken() {
@@ -149,9 +151,13 @@ export const api = {
   getMe: () => fetchJSON('/auth/me'),
 
   logout: () => {
+    try {
+      realtimeService.disconnect();
+    } catch {}
     clearSession();
   },
 
+  realtime: realtimeService,
   getStoredToken,
   getStoredUser,
   setSession,

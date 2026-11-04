@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db, logAudit } from '../db/database.js';
+import { broadcastEvent } from '../services/realtime.js';
 
 const router = Router();
 
@@ -210,6 +211,12 @@ router.post('/', (req, res) => {
       WHERE a.id = ?
     `).get(result.lastInsertRowid);
 
+    // Notificar en tiempo real a Administradores y al Paciente
+    broadcastEvent('APPOINTMENT_REQUESTED', newAppt, {
+      targetRoles: ['admin', 'patient'],
+      targetUserId: newAppt.patient_id
+    });
+
     res.status(201).json({ success: true, message: 'Cita registrada exitosamente', data: newAppt });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -217,7 +224,8 @@ router.post('/', (req, res) => {
 });
 
 // Transición de estado controlada: Solicitada -> Confirmada -> Completada -> Cancelada
-router.put('/:id/status', (req, res) => {
+// Soporta tanto PATCH como PUT para compatibilidad con estándares REST y clientes existentes
+function updateAppointmentStatus(req, res) {
   try {
     const appointmentId = req.params.id;
     const { status, actingUserId, actingUserName = 'Administración', actingRole = 'admin', notes } = req.body;
@@ -251,11 +259,27 @@ router.put('/:id/status', (req, res) => {
       details: `Estado de cita #${appointmentId} cambiado de '${current.status}' a '${status}'`
     });
 
-    const updated = db.prepare('SELECT * FROM appointments WHERE id = ?').get(appointmentId);
+    const updated = db.prepare(`
+      SELECT a.*, uPat.name as patient_name, uDoc.name as doctor_name
+      FROM appointments a
+      JOIN users uPat ON uPat.id = a.patient_id
+      JOIN users uDoc ON uDoc.id = a.doctor_id
+      WHERE a.id = ?
+    `).get(appointmentId);
+
+    // Notificar en tiempo real a 'admin', 'patient' y 'doctor'
+    broadcastEvent('APPOINTMENT_UPDATED', updated, {
+      targetRoles: ['admin', 'patient', 'doctor'],
+      targetUserIds: [updated.patient_id, updated.doctor_id]
+    });
+
     res.json({ success: true, message: `Estado actualizado a ${status}`, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
-});
+}
+
+router.put('/:id/status', updateAppointmentStatus);
+router.patch('/:id/status', updateAppointmentStatus);
 
 export default router;

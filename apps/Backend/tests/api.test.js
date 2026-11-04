@@ -2,6 +2,8 @@ import assert from 'node:assert';
 import http from 'node:http';
 import { db, initDatabase, generateUniquePickupCode } from '../src/db/database.js';
 import { seedData } from '../src/db/seed.js';
+import { generateToken } from '../src/utils/security.js';
+import { broadcastEvent, closeAllConnections } from '../src/services/realtime.js';
 
 // Inicializar DB y sembrado
 initDatabase();
@@ -447,6 +449,120 @@ async function runTests() {
     assert.strictEqual(detailRes.data.data.salt, undefined);
   });
 
+  // 21. Realtime SSE: Conexión y cabeceras
+  await test('21. Realtime SSE: Conexión a /api/realtime/events, cabeceras estándar y recepción de CONNECTED', async () => {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        req.destroy();
+        reject(new Error('Timeout esperando evento inicial CONNECTED en SSE'));
+      }, 5000);
+
+      const req = http.get('http://localhost:4000/api/realtime/events', (res) => {
+        assert.strictEqual(res.statusCode, 200);
+        assert.ok(res.headers['content-type'] && res.headers['content-type'].includes('text/event-stream'));
+        assert.ok(res.headers['cache-control'] && res.headers['cache-control'].includes('no-cache'));
+        assert.strictEqual(res.headers['connection'], 'keep-alive');
+
+        let buffer = '';
+        res.on('data', (chunk) => {
+          buffer += chunk.toString();
+          if (buffer.includes('event: CONNECTED')) {
+            clearTimeout(timer);
+            assert.ok(buffer.includes('"event":"CONNECTED"'));
+            assert.ok(buffer.includes('timestamp'));
+            req.destroy();
+            resolve();
+          }
+        });
+      });
+
+      req.on('error', (err) => {
+        if (err.code !== 'ECONNRESET') {
+          clearTimeout(timer);
+          reject(err);
+        }
+      });
+    });
+  });
+
+  // 22. Realtime SSE: Autenticación mediante token query param (?token=)
+  await test('22. Realtime SSE: Autenticación con token (?token=) y asociación de usuario/rol', async () => {
+    const adminToken = generateToken({ id: 1, role: 'admin', name: 'Administrador Demo' });
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        req.destroy();
+        reject(new Error('Timeout esperando autenticación SSE con token'));
+      }, 5000);
+
+      const req = http.get(`http://localhost:4000/api/realtime/events?token=${adminToken}`, (res) => {
+        assert.strictEqual(res.statusCode, 200);
+        let buffer = '';
+        res.on('data', (chunk) => {
+          buffer += chunk.toString();
+          if (buffer.includes('event: CONNECTED')) {
+            clearTimeout(timer);
+            assert.ok(buffer.includes('"userId":1'));
+            assert.ok(buffer.includes('"role":"admin"'));
+            req.destroy();
+            resolve();
+          }
+        });
+      });
+
+      req.on('error', (err) => {
+        if (err.code !== 'ECONNRESET') {
+          clearTimeout(timer);
+          reject(err);
+        }
+      });
+    });
+  });
+
+  // 23. Realtime SSE: Difusión de eventos en tiempo real con filtro de destinatario
+  await test('23. Realtime SSE: Difusión filtrada por rol y recepción de eventos en tiempo real', async () => {
+    const pharmacyToken = generateToken({ id: 5, role: 'pharmacy', name: 'Laura Mendoza' });
+    await new Promise((resolve, reject) => {
+      let isConnected = false;
+      const timer = setTimeout(() => {
+        req.destroy();
+        reject(new Error('Timeout esperando evento SSE difundido'));
+      }, 5000);
+
+      const req = http.get(`http://localhost:4000/api/realtime/events?token=${pharmacyToken}`, (res) => {
+        assert.strictEqual(res.statusCode, 200);
+        let buffer = '';
+        res.on('data', (chunk) => {
+          buffer += chunk.toString();
+
+          if (!isConnected && buffer.includes('event: CONNECTED')) {
+            isConnected = true;
+            // Emitir evento con destino 'pharmacy'
+            setTimeout(() => {
+              broadcastEvent('LOW_STOCK_ALERT', {
+                medication_name: 'Amoxicilina 500mg',
+                stock_quantity: 4,
+                min_stock: 10
+              }, { targetRole: 'pharmacy' });
+            }, 50);
+          } else if (isConnected && buffer.includes('event: LOW_STOCK_ALERT')) {
+            clearTimeout(timer);
+            assert.ok(buffer.includes('Amoxicilina 500mg'));
+            assert.ok(buffer.includes('"min_stock":10'));
+            req.destroy();
+            resolve();
+          }
+        });
+      });
+
+      req.on('error', (err) => {
+        if (err.code !== 'ECONNRESET') {
+          clearTimeout(timer);
+          reject(err);
+        }
+      });
+    });
+  });
+
   console.log(`\n========================================`);
   console.log(`🏁 Resultados de QA: ${passed} pruebas superadas, ${failed} fallos.`);
   console.log(`========================================\n`);
@@ -469,6 +585,7 @@ import clinicalRoutes from '../src/routes/clinical.js';
 import labRoutes from '../src/routes/laboratory.js';
 import pharmacyRoutes from '../src/routes/pharmacy.js';
 import auditRoutes from '../src/routes/audit.js';
+import realtimeRoutes from '../src/routes/realtime.js';
 
 const app = express();
 app.use(cors());
@@ -482,8 +599,10 @@ app.use('/api/clinical', clinicalRoutes);
 app.use('/api/laboratory', labRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/audit-logs', auditRoutes);
+app.use('/api/realtime', realtimeRoutes);
 
 const server = app.listen(4000, async () => {
   await runTests();
+  closeAllConnections();
   server.close();
 });

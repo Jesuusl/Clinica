@@ -10,6 +10,7 @@ import {
   isValidEmail,
   isValidPassword
 } from '../utils/security.js';
+import { broadcastEvent } from '../services/realtime.js';
 
 const router = Router();
 
@@ -377,6 +378,11 @@ router.post('/create-doctor', (req, res) => {
     }
 
     const createdDoctor = getFullUserById(doctorId);
+
+    // Notificar en tiempo real a administradores
+    broadcastEvent('DOCTOR_PROVISIONED', createdDoctor, {
+      targetRole: 'admin'
+    });
 
     res.status(201).json({
       success: true,

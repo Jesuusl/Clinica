@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { realtimeService } from '../services/realtime';
 import {
   ShieldCheck,
   Calendar,
@@ -21,7 +22,7 @@ import {
   Phone
 } from 'lucide-react';
 
-export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
+export default function AdminModule({ adminUser, onShowToast, onOpenAudit, lastRealtimeEvent }) {
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -57,8 +58,8 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
   const [patientRecords, setPatientRecords] = useState([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const [apptsRes, docsRes, usersRes] = await Promise.all([
         api.getAppointments(),
@@ -72,13 +73,42 @@ export default function AdminModule({ adminUser, onShowToast, onOpenAudit }) {
     } catch (err) {
       onShowToast(err.message, 'error');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     void loadData();
+
+    // Suscripción a eventos SSE de citas y altas médicas en tiempo real
+    const unsubReq = realtimeService.subscribe('APPOINTMENT_REQUESTED', () => {
+      void loadData(true);
+    });
+    const unsubUpd = realtimeService.subscribe('APPOINTMENT_UPDATED', () => {
+      void loadData(true);
+    });
+    const unsubDoc = realtimeService.subscribe('DOCTOR_PROVISIONED', () => {
+      void loadData(true);
+    });
+
+    return () => {
+      unsubReq();
+      unsubUpd();
+      unsubDoc();
+    };
   }, []);
+
+  // Actualización reactiva por prop del orquestador
+  useEffect(() => {
+    if (!lastRealtimeEvent) return;
+    if (
+      lastRealtimeEvent.type === 'APPOINTMENT_REQUESTED' ||
+      lastRealtimeEvent.type === 'APPOINTMENT_UPDATED' ||
+      lastRealtimeEvent.type === 'DOCTOR_PROVISIONED'
+    ) {
+      void loadData(true);
+    }
+  }, [lastRealtimeEvent]);
 
   // Cambiar estado de la cita (Confirmar o Cancelar)
   const handleUpdateStatus = async (appointmentId, newStatus) => {

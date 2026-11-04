@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db, logAudit } from '../db/database.js';
+import { broadcastEvent } from '../services/realtime.js';
 
 const router = Router();
 
@@ -51,7 +52,8 @@ router.get('/orders', (req, res) => {
 });
 
 // Cargar y registrar resultados de examen directamente a la historia clínica
-router.put('/orders/:id/result', (req, res) => {
+// Soporta POST y PUT tanto en /orders/:id/result como en /orders/:id/results
+function handleUploadLabResult(req, res) {
   try {
     const orderId = req.params.id;
     const {
@@ -111,10 +113,21 @@ router.put('/orders/:id/result', (req, res) => {
       WHERE l.id = ?
     `).get(orderId);
 
+    // Notificar en tiempo real a 'patient', 'doctor' y 'lab'
+    broadcastEvent('LAB_RESULT_READY', updated, {
+      targetRoles: ['patient', 'doctor', 'lab'],
+      targetUserIds: [updated.patient_id, updated.doctor_id]
+    });
+
     res.json({ success: true, message: 'Resultado cargado y publicado en la historia clínica del paciente', data: updated });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
-});
+}
+
+router.put('/orders/:id/result', handleUploadLabResult);
+router.put('/orders/:id/results', handleUploadLabResult);
+router.post('/orders/:id/results', handleUploadLabResult);
+router.post('/orders/:id/result', handleUploadLabResult);
 
 export default router;

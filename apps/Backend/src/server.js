@@ -11,6 +11,7 @@ import clinicalRoutes from './routes/clinical.js';
 import labRoutes from './routes/laboratory.js';
 import pharmacyRoutes from './routes/pharmacy.js';
 import auditRoutes from './routes/audit.js';
+import realtimeRoutes from './routes/realtime.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -62,6 +63,7 @@ app.use('/api/clinical', clinicalRoutes);
 app.use('/api/laboratory', labRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/audit-logs', auditRoutes);
+app.use('/api/realtime', realtimeRoutes);
 
 // Manejo global de rutas no encontradas
 app.use((req, res) => {

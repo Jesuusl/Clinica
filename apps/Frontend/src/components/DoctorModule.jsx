@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { realtimeService } from '../services/realtime';
 import {
   Stethoscope,
   Calendar,
@@ -16,7 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-export default function DoctorModule({ doctorUser, onShowToast }) {
+export default function DoctorModule({ doctorUser, onShowToast, lastRealtimeEvent }) {
   const [activeTab, setActiveTab] = useState('agenda'); // 'agenda', 'consulta', 'disponibilidad'
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -45,9 +46,9 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
     hours: ['08:00 - 12:00', '14:00 - 17:00']
   });
 
-  const loadDoctorData = async () => {
+  const loadDoctorData = async (quiet = false) => {
     if (!doctorUser?.id) return;
-    setLoading(true);
+    if (!quiet) setLoading(true);
     try {
       const [apptsRes, usersRes, docsRes] = await Promise.all([
         api.getAppointments({ doctor_id: doctorUser.id }),
@@ -68,13 +69,42 @@ export default function DoctorModule({ doctorUser, onShowToast }) {
     } catch (err) {
       onShowToast(err.message, 'error');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     void loadDoctorData();
+
+    // Suscripción reactiva en tiempo real a solicitudes y cambios en turnos
+    const unsubApptUpd = realtimeService.subscribe('APPOINTMENT_UPDATED', (event) => {
+      if (!event.data?.doctor_id || event.data.doctor_id === doctorUser?.id) {
+        void loadDoctorData(true);
+      }
+    });
+
+    const unsubApptReq = realtimeService.subscribe('APPOINTMENT_REQUESTED', (event) => {
+      if (!event.data?.doctor_id || event.data.doctor_id === doctorUser?.id) {
+        void loadDoctorData(true);
+      }
+    });
+
+    return () => {
+      unsubApptUpd();
+      unsubApptReq();
+    };
   }, [doctorUser?.id]);
+
+  // Actualización reactiva por prop del orquestador
+  useEffect(() => {
+    if (!lastRealtimeEvent) return;
+    const { type, data } = lastRealtimeEvent;
+    if (type === 'APPOINTMENT_UPDATED' || type === 'APPOINTMENT_REQUESTED') {
+      if (!data?.doctor_id || data.doctor_id === doctorUser?.id) {
+        void loadDoctorData(true);
+      }
+    }
+  }, [lastRealtimeEvent, doctorUser?.id]);
 
   // Iniciar atención de una cita
   const handleStartConsultation = async (appt) => {

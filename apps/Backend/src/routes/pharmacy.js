@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db, logAudit } from '../db/database.js';
+import { broadcastEvent } from '../services/realtime.js';
 
 const router = Router();
 
@@ -192,6 +193,34 @@ router.post('/dispense', (req, res) => {
       entityId: prescription.id,
       details: `Dispensación confirmada para medicamento '${prescription.medication_name}' con código único ${code}. Paciente ID: ${prescription.patient_id}`
     });
+
+    // 1. Notificar dispensación a Farmacia, Paciente y Administrador
+    broadcastEvent('MEDICATION_DISPENSED', {
+      prescription_id: prescription.id,
+      pickup_code: code,
+      patient_id: prescription.patient_id,
+      medication_name: prescription.medication_name,
+      remaining_stock: inventoryUpdated ? inventoryUpdated.stock_quantity : null,
+      status: 'Reclamado',
+      dispensed_at: new Date().toISOString()
+    }, {
+      targetRoles: ['pharmacy', 'patient', 'admin'],
+      targetUserId: prescription.patient_id
+    });
+
+    // 2. Notificar alerta de stock crítico si queda menor o igual a min_threshold_alert
+    if (inventoryUpdated && inventoryUpdated.stock_quantity <= inventoryUpdated.min_threshold_alert) {
+      broadcastEvent('LOW_STOCK_ALERT', {
+        inventory_id: prescription.inventory_id,
+        medication_name: prescription.medication_name,
+        stock_quantity: inventoryUpdated.stock_quantity,
+        min_stock: inventoryUpdated.min_threshold_alert,
+        min_threshold_alert: inventoryUpdated.min_threshold_alert,
+        warning: `Alerta de inventario crítico: ${prescription.medication_name} cuenta con ${inventoryUpdated.stock_quantity} unidades (umbral mínimo: ${inventoryUpdated.min_threshold_alert})`
+      }, {
+        targetRoles: ['pharmacy', 'admin']
+      });
+    }
 
     res.json({
       success: true,
