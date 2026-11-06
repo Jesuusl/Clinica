@@ -161,13 +161,34 @@ export function sanitizeEmail(email) {
 
 /**
  * Valida formato estándar de correo electrónico
+ * Implementa una verificación lineal y determinista O(N) sin retroceso catastrófico (mitigando ReDoS / SonarCloud S5852)
  * @param {string} email 
  * @returns {boolean}
  */
 export function isValidEmail(email) {
   if (!email || typeof email !== 'string') return false;
-  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return regex.test(email.trim());
+  const trimmed = email.trim();
+  if (trimmed.length < 5 || trimmed.length > 254) return false;
+
+  const atIndex = trimmed.indexOf('@');
+  if (atIndex <= 0 || atIndex !== trimmed.lastIndexOf('@')) return false;
+
+  const localPart = trimmed.slice(0, atIndex);
+  const domainPart = trimmed.slice(atIndex + 1);
+
+  if (domainPart.length < 3) return false;
+  const dotIndex = domainPart.lastIndexOf('.');
+  if (dotIndex <= 0 || dotIndex >= domainPart.length - 1) return false;
+
+  const localRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/;
+  const domainRegex = /^[a-zA-Z0-9.-]+$/;
+
+  return (
+    localRegex.test(localPart) &&
+    domainRegex.test(domainPart) &&
+    !domainPart.startsWith('.') &&
+    !domainPart.endsWith('.')
+  );
 }
 
 /**

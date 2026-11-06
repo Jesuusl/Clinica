@@ -93,11 +93,8 @@ export default function AuthModal({
     setErrorMessage('');
     setLoading(true);
     try {
-      // Intentar login con las credenciales demo preconfiguradas
-      const res = await api.login({
-        email: demoAccount.email,
-        password: demoAccount.password
-      });
+      // Iniciar sesión segura con el endpoint de acceso demo del servidor (sin contraseñas en frontend)
+      const res = await api.demoLogin(demoAccount.email);
 
       if (onShowToast) {
         onShowToast(`Acceso Demo activado: ${demoAccount.name} (${demoAccount.roleLabel})`, 'success');

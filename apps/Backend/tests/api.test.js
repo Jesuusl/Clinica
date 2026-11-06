@@ -449,6 +449,27 @@ async function runTests() {
     assert.strictEqual(detailRes.data.data.salt, undefined);
   });
 
+  await test('20.1 Demo Login Seguro: Acceso sin credenciales quemadas en frontend y rechazo de correos no autorizados', async () => {
+    // Éxito con cuenta demo autorizada
+    const demoRes = await request('/auth/demo-login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'recepcion@clinicasalud.com' })
+    });
+    assert.strictEqual(demoRes.status, 200);
+    assert.strictEqual(demoRes.data.success, true);
+    assert.ok(demoRes.data.data.token);
+    assert.strictEqual(demoRes.data.data.user.role, 'admin');
+    assert.strictEqual(demoRes.data.data.user.password_hash, undefined);
+
+    // Rechazo de correo no demo
+    const unauthorizedRes = await request('/auth/demo-login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'no_demo@externo.com' })
+    });
+    assert.strictEqual(unauthorizedRes.status, 403);
+    assert.strictEqual(unauthorizedRes.data.success, false);
+  });
+
   // 21. Realtime SSE: Conexión y cabeceras
   await test('21. Realtime SSE: Conexión a /api/realtime/events, cabeceras estándar y recepción de CONNECTED', async () => {
     await new Promise((resolve, reject) => {

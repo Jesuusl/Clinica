@@ -64,7 +64,6 @@ export const DEMO_ACCOUNTS = [
     roleLabel: 'Administración / Recepción',
     name: 'Carlos Ramos',
     email: 'recepcion@clinicasalud.com',
-    password: 'Admin123*',
     badge: 'Control Central & Doctores'
   },
   {
@@ -72,7 +71,6 @@ export const DEMO_ACCOUNTS = [
     roleLabel: 'Cardiología Especializada',
     name: 'Dra. Valentina Soto',
     email: 'vsoto@clinicasalud.com',
-    password: 'Doctor123*',
     badge: 'Consultas & Prescripciones'
   },
   {
@@ -80,7 +78,6 @@ export const DEMO_ACCOUNTS = [
     roleLabel: 'Medicina General',
     name: 'Dr. Alejandro Ruiz',
     email: 'aruiz@clinicasalud.com',
-    password: 'Doctor123*',
     badge: 'Atención Primaria'
   },
   {
@@ -88,7 +85,6 @@ export const DEMO_ACCOUNTS = [
     roleLabel: 'Paciente Titular',
     name: 'Juan Pérez Gómez',
     email: 'juan.perez@email.com',
-    password: 'Paciente123*',
     badge: 'Historial & Código de Farmacia'
   },
   {
@@ -96,7 +92,6 @@ export const DEMO_ACCOUNTS = [
     roleLabel: 'Paciente',
     name: 'María Gómez Londoño',
     email: 'maria.gomez@email.com',
-    password: 'Paciente123*',
     badge: 'Agendamiento Web'
   },
   {
@@ -104,7 +99,6 @@ export const DEMO_ACCOUNTS = [
     roleLabel: 'Laboratorio Clínico',
     name: 'Lic. Roberto Díaz',
     email: 'lab@clinicasalud.com',
-    password: 'Lab123*',
     badge: 'Resultados Inmediatos'
   },
   {
@@ -112,7 +106,6 @@ export const DEMO_ACCOUNTS = [
     roleLabel: 'Farmacia Hospitalaria',
     name: 'QF. Laura Mendoza',
     email: 'farmacia@clinicasalud.com',
-    password: 'Farmacia123*',
     badge: 'Despacho Código 6 Dígitos'
   }
 ];
@@ -123,6 +116,18 @@ export const api = {
     const res = await fetchJSON('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials)
+    });
+    if (res.data?.token) {
+      setSession(res.data.token, res.data.user);
+    }
+    return res;
+  },
+
+  // Inicio de sesión seguro con perfiles demo autorizados (sin credenciales hardcodeadas)
+  demoLogin: async (email) => {
+    const res = await fetchJSON('/auth/demo-login', {
+      method: 'POST',
+      body: JSON.stringify({ email })
     });
     if (res.data?.token) {
       setSession(res.data.token, res.data.user);

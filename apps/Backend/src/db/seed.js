@@ -2,13 +2,13 @@ import { db, initDatabase } from './database.js';
 import { hashPassword } from '../utils/security.js';
 
 export const DEMO_CREDENTIALS = {
-  'recepcion@clinicasalud.com': 'Admin123*',
-  'vsoto@clinicasalud.com': 'Doctor123*',
-  'aruiz@clinicasalud.com': 'Doctor123*',
-  'lab@clinicasalud.com': 'Lab123*',
-  'farmacia@clinicasalud.com': 'Farmacia123*',
-  'juan.perez@email.com': 'Paciente123*',
-  'maria.gomez@email.com': 'Paciente123*'
+  'recepcion@clinicasalud.com': process.env.DEMO_ADMIN_PASSWORD || 'Admin123*',
+  'vsoto@clinicasalud.com': process.env.DEMO_DOCTOR_PASSWORD || 'Doctor123*',
+  'aruiz@clinicasalud.com': process.env.DEMO_DOCTOR_PASSWORD || 'Doctor123*',
+  'lab@clinicasalud.com': process.env.DEMO_LAB_PASSWORD || 'Lab123*',
+  'farmacia@clinicasalud.com': process.env.DEMO_PHARMACY_PASSWORD || 'Farmacia123*',
+  'juan.perez@email.com': process.env.DEMO_PATIENT_PASSWORD || 'Paciente123*',
+  'maria.gomez@email.com': process.env.DEMO_PATIENT_PASSWORD || 'Paciente123*'
 };
 
 export function getDefaultPasswordForUser(email, role) {
@@ -17,12 +17,12 @@ export function getDefaultPasswordForUser(email, role) {
     return DEMO_CREDENTIALS[normalized];
   }
   switch (role) {
-    case 'admin': return 'Admin123*';
-    case 'doctor': return 'Doctor123*';
-    case 'lab': return 'Lab123*';
-    case 'pharmacy': return 'Farmacia123*';
+    case 'admin': return process.env.DEMO_ADMIN_PASSWORD || 'Admin123*';
+    case 'doctor': return process.env.DEMO_DOCTOR_PASSWORD || 'Doctor123*';
+    case 'lab': return process.env.DEMO_LAB_PASSWORD || 'Lab123*';
+    case 'pharmacy': return process.env.DEMO_PHARMACY_PASSWORD || 'Farmacia123*';
     case 'patient':
-    default: return 'Paciente123*';
+    default: return process.env.DEMO_PATIENT_PASSWORD || 'Paciente123*';
   }
 }
 

@@ -110,6 +110,87 @@ router.post('/login', (req, res) => {
   }
 });
 
+// 1.1 Inicio de sesión seguro para perfiles demo autorizados (sin exposición de contraseñas en frontend)
+router.post('/demo-login', (req, res) => {
+  try {
+    const { email } = req.body || {};
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe proporcionar el correo electrónico del perfil demo'
+      });
+    }
+
+    const cleanEmail = sanitizeEmail(email);
+
+    // Cuentas de demostración clínicas permitidas
+    const allowedDemoEmails = [
+      'recepcion@clinicasalud.com',
+      'vsoto@clinicasalud.com',
+      'aruiz@clinicasalud.com',
+      'juan.perez@email.com',
+      'maria.gomez@email.com',
+      'lab@clinicasalud.com',
+      'farmacia@clinicasalud.com'
+    ];
+
+    if (!allowedDemoEmails.includes(cleanEmail)) {
+      return res.status(403).json({
+        success: false,
+        error: 'El perfil solicitado no está autorizado para acceso de demostración rápida'
+      });
+    }
+
+    const userRow = db.prepare(`
+      SELECT id, name, email, role
+      FROM users
+      WHERE LOWER(TRIM(email)) = ?
+    `).get(cleanEmail);
+
+    if (!userRow) {
+      return res.status(404).json({
+        success: false,
+        error: 'El perfil demo solicitado no existe en la base de datos'
+      });
+    }
+
+    const fullUser = getFullUserById(userRow.id);
+    const token = generateToken(fullUser);
+
+    logAudit({
+      userId: userRow.id,
+      userName: userRow.name,
+      role: userRow.role,
+      action: 'DEMO_LOGIN',
+      entityType: 'auth',
+      entityId: userRow.id,
+      details: `Inicio de sesión demo asistido para ${userRow.name} (${userRow.role})`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
+    broadcastEvent({
+      type: 'USER_LOGGED_IN',
+      title: 'Acceso Clínico Demo',
+      message: `${userRow.name} (${userRow.role}) ingresó al sistema vía perfil demo`,
+      timestamp: new Date().toISOString(),
+      priority: 'low',
+      source: 'auth'
+    });
+
+    res.json({
+      success: true,
+      message: 'Acceso demo concedido exitosamente',
+      data: {
+        user: fullUser,
+        token
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // 2. Registro público exclusivo para pacientes
 router.post('/register-patient', (req, res) => {
   try {
